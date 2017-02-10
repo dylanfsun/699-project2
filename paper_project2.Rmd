@@ -1,0 +1,38 @@
+---
+title: "exploratory"
+author: "Dylan Sun"
+date: "2/2/2017"
+output: pdf_document
+---
+
+### load packges
+```{r}
+library(data.table)
+library(readxl)
+```
+
+### load data
+```{r}
+full <- read_excel("Updated DATAforBIOSTAT699.xls")
+full <- data.table(full)
+pain <- full[, .(pid, initialsite, condition, grpnbr, numsessions, therapysite, AGE, yearfmonset, yearfmdiagnosed, sex, bmi, ethnic, race, highesteduc, relationstatus, numberhousehold, numberchildren, currentemployment, hhincome, healthinsurance)]
+```
+
+## Study Aims
+Primary Aim # 1: Main effects of the interventions vs. control.  To test the hypothesis that both EET and CBT will lead to greater improvements in outcomes (pain, mood, disability, fatigue, sleep, positive affect and life satisfaction, and cognitive functioning) over a 1-year follow-up than the control condition. Primary Aim # 2: Mediation of the interventions.  To test the hypotheses that the benefits of EET are mediated by improved autonomic regulation, emotional awareness, expression, and stress resolution; whereas the benefits of CBT are mediated by increased adaptive coping and decreased catastrophizing.  Both interventions are mediated by a shift from external to internal locus of pain control.
+
+Secondary Aim # 1: Differential outcome efficacy of interventions.  To explore the hypotheses that EET leads to greater improvement in depression and anxiety than does CBT, whereas CBT leads to greater improvement in physical functioning and activity than does EET. Secondary Aim # 2: Moderation of the interventions.  To explore the hypotheses that EET will have stronger benefits than both CBT and the control condition for patients who have histories of trauma, interpersonal dysfunction, or depression; whereas CBT will have stronger benefits than both EET and control for patients without these risk factors or who have relatively low emotional awareness or psychological mindedness
+
+## Methods
+This dataset comes from a two-site, three-arm, allegiance-controlled randomized clinical trial. The dataset contains 230 individual subjects, with 94$\%$ females and 6$\%$ males. 
+
+Subjects were randomized to three different treatments. The outcome variable, pain, was measured at baseline, immediately post-treatment, and six months post-treatment. 
+
+Because this study was a randomized trial, we look at the different groups to see if the randomization was successful in creating evenly distributed groups. 
+
+### Description of Issues with data
+There were 216 female subjects and only 14 male subjects, representing 94$\%$ and 6$\%$, respectively. Due to this gender imbalance in the study design, we cannot make any conclusive statements about men. 
+
+
+
+
