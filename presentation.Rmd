@@ -1,8 +1,8 @@
 ---
 title: "Presentation"
 author: "Dylan Sun"
-date: "2/13/2017"
-output:
+date: "2017-02-14"
+output: 
   slidy_presentation:
     font_adjustment: 2
 ---
@@ -115,8 +115,8 @@ group <- lme(mean_pain ~ time + time:condition, random = ~ 0 + time | grpnbr, da
 ## Normality
 - For the anovas
 ```{r figure 1, echo=FALSE, message=FALSE, warning=FALSE}
-ggplot(long_pain, aes(x = pain)) + geom_density() + facet_wrap(condition ~
-    time) + ggtitle("Figure 1: Density plots for pain by treatment and time point")
+ggplot(long_pain, aes(x = pain)) + geom_histogram() + facet_wrap(condition ~
+    time) + ggtitle("Figure 1: Histograms for pain by treatment and time point")
 #ggplot(group_pain, aes(x = mean_pain)) + geom_density() + facet_wrap(condition ~ time) 
 ```
 
