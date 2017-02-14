@@ -2,24 +2,133 @@
 title: "Presentation"
 author: "Dylan Sun"
 date: "2/13/2017"
-output: html_document
+output:
+  slidy_presentation:
+    font_adjustment: 2
 ---
 
-### Comparing treatment groups to control groups
-```{r}
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "CBT", .(BPI_PainSeverity_V2)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "EET", .(BPI_PainSeverity_V2)])
-
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V3)], pain[condition == "CBT", .(BPI_PainSeverity_V3)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V3)], pain[condition == "EET", .(BPI_PainSeverity_V3)])
-
-
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V4)], pain[condition == "CBT", .(BPI_PainSeverity_V4)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V4)], pain[condition == "EET", .(BPI_PainSeverity_V4)])
-
+```{r, message=FALSE, warning=FALSE, echo = F}
+# load packages
+library(data.table)
+library(readxl)
+library(lme4)
+library(nlme)
+library(stargazer)
+library(tableone)
+library(ggplot2)
+library(gridExtra)
 ```
-T-tests comparing the difference in mean pain at baseline found no difference between EDU and EET, and no difference between EDU and CBT. 
+```{r, message=FALSE, warning=FALSE, results='hide', echo = F}
+# load data
+full <- read_excel("~/Downloads/Updated DATAforBIOSTAT699.xls")
+full <- data.table(full)
+full <- full[, year_of_start := gsub("^(\\d{4}).*", "\\1", study_start)]
+full <- full[, year_post_diag := as.numeric(year_of_start) - yearfmdiagnosed]
+pain <- full[, .(pid, initialsite, condition, grpnbr, numsessions, therapysite, AGE, yearfmonset, yearfmdiagnosed, year_post_diag, sex, bmi, ethnic, race, highesteduc, relationstatus, numberhousehold, numberchildren, currentemployment, hhincome, healthinsurance, tptotal, acr_fmness, CMSI_Total, BPI_PainSeverity_V2, BPI_PainSeverity_V3, BPI_PainSeverity_V4)]
+pain[, condition := factor(condition, levels = c("EDU", "CBT", "EET"))]
+pain[, pain_diff := BPI_PainSeverity_V2- BPI_PainSeverity_V4]
+pain[, pain_diff_pct := (BPI_PainSeverity_V2 - BPI_PainSeverity_V4) / BPI_PainSeverity_V2]
 
-T-tests comparing the difference in mean pain immediately post-treatment found a significant difference between EDU and EET, and a significant difference between EDU and CBT. 
 
-T-tests comparing the difference in mean pain six months post-treatment found no difference between EDU and EET, and no difference between EDU and CBT. 
+long_pain <- melt(pain, measure.vars = c("BPI_PainSeverity_V2", "BPI_PainSeverity_V3", "BPI_PainSeverity_V4"), variable.name = "time", value.name = "pain")
+long_pain[, pain := as.numeric(pain)]
+long_pain[time == "BPI_PainSeverity_V2", time := "V2"]
+long_pain[time == "BPI_PainSeverity_V3", time := "V3"]
+long_pain[time == "BPI_PainSeverity_V4", time := "V4"]
+long_pain[, time := factor(time, levels = c("V2", "V3", "V4"))]
+long_pain[, grpnbr := as.factor(grpnbr)]
+long_pain[, pid := as.numeric(pid)]
+long_pain[, condition := factor(condition, levels = c("EDU", "CBT", "EET"))]
+
+
+group_pain <- long_pain[, .(mean_yrpost_diag = mean(year_post_diag, na.rm = T), mean_age = mean(AGE), mean_pain = mean(pain, na.rm = T)), by = .(grpnbr, condition, time)]
+
+complete <- long_pain[!is.na(pain)]
+```
+
+```{r, message=FALSE, warning=FALSE, echo = F, results = "hide"}
+# percentages are calculated after excluding missing values
+vars <- c("therapysite", "numsessions", "AGE", "year_post_diag", "sex", "bmi", "ethnic", "race", "healthinsurance", "tptotal", "acr_fmness", "CMSI_Total", "BPI_PainSeverity_V2", "BPI_PainSeverity_V3", "BPI_PainSeverity_V4")
+cat_vars <- c("initialsite", "grpnbr", "therapysite", "sex", "ethnic", "race", "highesteduc", "relationstatus","currentemployment", "healthinsurance")
+tab1 <- CreateTableOne(data = pain, vars = vars, factorVars = cat_vars, strata = "condition")
+tab1mat <- print(tab1, showAllLevels = T)
+#write.csv(tab1mat, file = "tableone.csv")
+```
+
+```{r, message=FALSE, warning=FALSE, results="asis", echo = F}
+#group <- lmer(mean_pain ~ time + time:condition + (0 + grpnbr | time), data = group_pain)
+#summary(group)
+#confint(group, method="boot", nsim=1000)
+group <- lme(mean_pain ~ time + time:condition, random = ~ 0 + time | grpnbr, data = group_pain)
+#summary(group) # this is the one I'm going with I think; I took mean pain for each group, then two levels.
+#stargazer(group, type = "text", report = "vcsp", header = F, digits = 2)
+```
+
+
+
+## Study Design
+
+## Objectives
+
+## Descriptives
+|  	| level 	| EDU 	| CBT 	| EET 	| p 	|
+|-----------------------------------	|-------	|---------------	|---------------	|---------------	|-------	|
+| n 	|  	| 76 	| 75 	| 79 	|  	|
+| Therapy site (\%) 	| UM 	| 31 (40.8) 	| 32 (42.7) 	| 38 (48.1) 	| 0.634 	|
+|  	| WSU 	| 45 (59.2) 	| 43 (57.3) 	| 41 (51.9) 	|  	|
+| Number of sessions (mean (sd)) 	|  	| 6.46 (1.65) 	| 5.93 (2.09) 	| 6.51 (1.85) 	| 0.114 	|
+| Age (mean (sd)) 	|  	| 50.28 (12.48) 	| 48.13 (12.54) 	| 48.98 (11.70) 	| 0.552 	|
+| Years after diagnosis (mean (sd)) 	|  	| 7.36 (8.19) 	| 8.84 (7.62) 	| 8.86 (8.08) 	| 0.426 	|
+| Sex (\%) 	| 1 	| 75 (98.7) 	| 68 (90.7) 	| 73 (92.4) 	| 0.094 	|
+|  	| 2 	| 1 ( 1.3) 	| 7 ( 9.3) 	| 6 ( 7.6) 	|  	|
+| BMI (mean (sd)) 	|  	| 31.46 (6.37) 	| 30.16 (7.71) 	| 29.16 (6.64) 	| 0.121 	|
+| Ethnic (\%) 	| 1 	| 4 ( 5.3) 	| 2 ( 2.7) 	| 2 ( 2.6) 	| 0.601 	|
+|  	| 2 	| 72 (94.7) 	| 71 (97.3) 	| 76 (97.4) 	|  	|
+| Race (\%) 	| 1 	| 0 ( 0.0) 	| 1 ( 1.3) 	| 1 ( 1.3) 	| 0.361 	|
+|  	| 3 	| 1 ( 1.3) 	| 0 ( 0.0) 	| 0 ( 0.0) 	|  	|
+|  	| 4 	| 18 (23.7) 	| 15 (20.0) 	| 8 (10.1) 	|  	|
+|  	| 5 	| 54 (71.1) 	| 57 (76.0) 	| 68 (86.1) 	|  	|
+|  	| 6 	| 3 ( 3.9) 	| 2 ( 2.7) 	| 2 ( 2.5) 	|  	|
+| Has health insurance (\%) 	| 0 	| 9 (11.8) 	| 9 (12.0) 	| 4 ( 5.1) 	| 0.244 	|
+|  	| 1 	| 67 (88.2) 	| 66 (88.0) 	| 75 (94.9) 	|  	|
+| tp total (mean (sd)) 	|  	| 14.75 (2.53) 	| 14.63 (3.00) 	| 14.69 (2.77) 	| 0.963 	|
+| acr fmness (mean (sd)) 	|  	| 20.57 (4.73) 	| 20.34 (4.73) 	| 20.96 (4.36) 	| 0.713 	|
+| CMSI Total (mean (sd)) 	|  	| 38.76 (12.86) 	| 34.00 (11.72) 	| 37.31 (11.74) 	| 0.050 	|
+| Pain at time V2 (mean (sd)) 	|  	| 5.47 (1.74) 	| 5.35 (1.62) 	| 5.34 (1.55) 	| 0.863 	|
+| Pain at time V3 (mean (sd)) 	|  	| 5.26 (1.69) 	| 4.74 (1.66) 	| 4.42 (2.04) 	| 0.019 	|
+| Pain at time V4 (mean (sd)) 	|  	| 4.86 (1.97) 	| 4.83 (1.69) 	| 4.49 (2.20) 	| 0.462 	|
+| Pain difference V2-V4 (mean (sd)) 	|  	| 0.63 (1.92) 	| 0.57 (1.55) 	| 0.80 (1.62) 	| 0.713 	|
+
+## Normality
+```{r figure 1, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(long_pain, aes(x = pain)) + geom_density() + facet_wrap(condition ~
+    time) + ggtitle("Figure 1: Density plots for pain by treatment and time point")
+#ggplot(group_pain, aes(x = mean_pain)) + geom_density() + facet_wrap(condition ~ time) 
+```
+
+## Model
+
+## Model results
+| Variable            | Value     | Std.Error | p-value |
+|---------------------|-----------|-----------|---------|
+| timeV3              | -0.223214 | 0.2154765 | 0.3037  |
+| timeV4              | -0.576035 | 0.2365247 | 0.0174  |
+| timeV2*conditionCBT | -0.097448 | 0.2986305 | 0.7451  |
+| timeV3*conditionCBT | -0.557840 | 0.3235078 | 0.0889  |
+| timeV4*conditionCBT | -0.120446 | 0.4105077 | 0.7701  |
+| timeV2*conditionEET | -0.125255 | 0.2869149 | 0.6637  |
+| timeV3*conditionEET | -0.900893 | 0.3108163 | 0.0050  |
+| timeV4*conditionEET | -0.411253 | 0.3944031 | 0.3006  |
+
+## Model diagnostics
+```{r diagnostics, message=FALSE, warning=FALSE, echo = F}
+p1 <- ggplot() + geom_point(aes(fitted(group), residuals(group, type="normalized"))) + 
+  xlab("Fitted Pain Values") +
+  ylab("Normalized Residuals") + 
+  geom_hline(yintercept = 0) +
+  stat_smooth()
+p2 <- qplot(fitted(group), group_pain$mean_pain, xlab = "Fitted Pain Values", ylab = "Actual Pain Values") + geom_abline(slope = 1)
+grid.arrange(p1, p2, nrow=1, top = "Figure 2: Residual plots")
+```
+
+## Conclusions
