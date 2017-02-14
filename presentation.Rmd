@@ -1,0 +1,25 @@
+---
+title: "Presentation"
+author: "Dylan Sun"
+date: "2/13/2017"
+output: html_document
+---
+
+### Comparing treatment groups to control groups
+```{r}
+t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "CBT", .(BPI_PainSeverity_V2)])
+t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "EET", .(BPI_PainSeverity_V2)])
+
+t.test(pain[condition == "EDU", .(BPI_PainSeverity_V3)], pain[condition == "CBT", .(BPI_PainSeverity_V3)])
+t.test(pain[condition == "EDU", .(BPI_PainSeverity_V3)], pain[condition == "EET", .(BPI_PainSeverity_V3)])
+
+
+t.test(pain[condition == "EDU", .(BPI_PainSeverity_V4)], pain[condition == "CBT", .(BPI_PainSeverity_V4)])
+t.test(pain[condition == "EDU", .(BPI_PainSeverity_V4)], pain[condition == "EET", .(BPI_PainSeverity_V4)])
+
+```
+T-tests comparing the difference in mean pain at baseline found no difference between EDU and EET, and no difference between EDU and CBT. 
+
+T-tests comparing the difference in mean pain immediately post-treatment found a significant difference between EDU and EET, and a significant difference between EDU and CBT. 
+
+T-tests comparing the difference in mean pain six months post-treatment found no difference between EDU and EET, and no difference between EDU and CBT. 

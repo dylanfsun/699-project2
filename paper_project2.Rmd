@@ -1,81 +1,119 @@
 ---
-title: "exploratory"
-author: "Dylan Sun"
-date: "2/2/2017"
+title: "Effectiveness of Therapy Treatment on Fibromyalgia"
+author: "8532"
+date: "2017-02-13"
+header-includes:
+    - \usepackage{setspace}\doublespacing
 output: pdf_document
 ---
 
-### load packges
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, echo = F}
+# load packages
 library(data.table)
 library(readxl)
+library(lme4)
+library(nlme)
+library(stargazer)
+library(tableone)
+library(ggplot2)
+library(gridExtra)
 ```
 
-### load data3
-```{r, message=FALSE, warning=FALSE, results='hide'}
+```{r, message=FALSE, warning=FALSE, results='hide', echo = F}
+# load data
 full <- read_excel("~/Downloads/Updated DATAforBIOSTAT699.xls")
 full <- data.table(full)
-pain <- full[, .(pid, initialsite, condition, grpnbr, numsessions, therapysite, AGE, yearfmonset, yearfmdiagnosed, sex, bmi, ethnic, race, highesteduc, relationstatus, numberhousehold, numberchildren, currentemployment, hhincome, healthinsurance, tptotal, acr_fmness, CMSI_Total, BPI_PainSeverity_V2, BPI_PainSeverity_V3, BPI_PainSeverity_V4)]
+full <- full[, year_of_start := gsub("^(\\d{4}).*", "\\1", study_start)]
+full <- full[, year_post_diag := as.numeric(year_of_start) - yearfmdiagnosed]
+pain <- full[, .(pid, initialsite, condition, grpnbr, numsessions, therapysite, AGE, yearfmonset, yearfmdiagnosed, year_post_diag, sex, bmi, ethnic, race, highesteduc, relationstatus, numberhousehold, numberchildren, currentemployment, hhincome, healthinsurance, tptotal, acr_fmness, CMSI_Total, BPI_PainSeverity_V2, BPI_PainSeverity_V3, BPI_PainSeverity_V4)]
+pain[, condition := factor(condition, levels = c("EDU", "CBT", "EET"))]
+pain[, pain_diff := BPI_PainSeverity_V2- BPI_PainSeverity_V4]
+pain[, pain_diff_pct := (BPI_PainSeverity_V2 - BPI_PainSeverity_V4) / BPI_PainSeverity_V2]
+
+
+long_pain <- melt(pain, measure.vars = c("BPI_PainSeverity_V2", "BPI_PainSeverity_V3", "BPI_PainSeverity_V4"), variable.name = "time", value.name = "pain")
+long_pain[, pain := as.numeric(pain)]
+long_pain[time == "BPI_PainSeverity_V2", time := "V2"]
+long_pain[time == "BPI_PainSeverity_V3", time := "V3"]
+long_pain[time == "BPI_PainSeverity_V4", time := "V4"]
+long_pain[, time := factor(time, levels = c("V2", "V3", "V4"))]
+long_pain[, grpnbr := as.factor(grpnbr)]
+long_pain[, pid := as.numeric(pid)]
+long_pain[, condition := factor(condition, levels = c("EDU", "CBT", "EET"))]
+
+
+group_pain <- long_pain[, .(mean_yrpost_diag = mean(year_post_diag, na.rm = T), mean_age = mean(AGE), mean_pain = mean(pain, na.rm = T)), by = .(grpnbr, condition, time)]
+
+complete <- long_pain[!is.na(pain)]
 ```
 
-## Study Aims
-Primary Aim # 1: Main effects of the interventions vs. control.  To test the hypothesis that both EET and CBT will lead to greater improvements in outcomes (pain, mood, disability, fatigue, sleep, positive affect and life satisfaction, and cognitive functioning) over a 1-year follow-up than the control condition. 
+## Abstract
+Fibromyalgia (FM) is a chronic disorder characterized by widespread, persistent muscle pain throughout the body, often centered at tender points. This pain is generally accompanied by fatigue and sleep problems. The pain associated with fibromyalgia is subjective, and the condition is therefore difficult to measure and treat. This study conducts a randomized clinical trial comparing three treatment therapies: Emotional Awareness and Expression Therapy (EET), Cognitive-behavioral Therapy (CBT), and FM Education (EDU), the control treatment. Using score on the Pain Severity Index (PSI) survey as a measurement for pain, this analysis uses a linear mixed model to determine the difference between the two treatment groups and the control group at two post-treatment time points. Using the results of the model, we show that all three treatments in the study were associated with a significant decrease in pain over time. We then note that the two treatment groups were more effective than the control group at the three-month post-randomization time point, but that the control group then catches up to the treatment groups by the time of the nine-month post-randomization follow-up evaluation. 
 
-Secondary Aim # 1: Differential outcome efficacy of interventions.  To explore the hypotheses that EET leads to greater improvement in depression and anxiety than does CBT, whereas CBT leads to greater improvement in physical functioning and activity than does EET.
+## Introduction
+
+Fibromyalgia is a chronic pain disorder that affects millions of people in the United States and can have adverse effects on quality of life and stress. Symptoms of fibromyalgia include muscle pain throughout the body, tenderness, fatigue, and lack of sleep. 
+Pain from fibromyalgia is subjective and is considered a psychological state. Many patients with FM also have Post-traumatic Stress Disorder (PTSD) or PTSD symptoms. Because effects can vary widely from person to person, chronic pain is difficult to measure consistently. Previous studies have shown that non-pharmacological therapies such as education, exercise, and cognitive behavior therapy are effective in treating pain. This study looks at three specific treatments: Emotional Awareness and Expression Therapy (EET), Cognitive-behavioral Therapy (CBT), and FM Education (EDU). Of these three treatments, EDU is considered a placebo treatment, CBT is the standard intervention, and EET is an innovative treatment that targets stress and emotional processing. 
+The aims of this study are to test the hypothesis that EET and CBT are more effective in reducing pain levels than the control treatment EDU, and to see if the new EET therapy is more effective than the standard CBT therapy.
 
 ## Methods
 This dataset comes from a two-site, three-arm, allegiance-controlled randomized clinical trial. The dataset contains 230 individual subjects, with 94$\%$ females and 6$\%$ males. 
+Subjects at each site were placed into blocks of 18 patients as they entered the study, and then each block was broken into three experimental groups of six, with each group assigned to a different treatment arm. Many baseline variables were measured, including age, education, income, and race. The outcome variable, pain, was measured via a survey at baseline (V2), immediately post-treatment (V3), and six months post-treatment (V4). Each treatment consisted of eight sessions in eight weeks, with each session within the same treatment involving different activities. Many patients did not attend all eight sessions. There were also a number of missing values, with 36 missing pain values out of the total 690 pain measurements across all three time points. 
+Prior to fitting a model, the dataset was collapsed on group by taking the mean pain level within each group at each time point, resulting in a total of 120 observations (40 groups with 3 measurements each). Missing pain values were omitted while calculating the mean. Besides collapsing pain measurements by group, no other values were omitted. Collapsing on group loses individual-level data, but serves to reduce the number of random effects and deal with the missing values and missed treatments. Looking on the group level fits naturally with the study design, as each group goes through all eight sessions together and are encouraged to learn and partake in practice exercises with other members of the same group. Subjects who miss sessions will see other familiar group members the following week who did not miss the previous session.
 
-Subjects were randomized to three different treatments. The outcome variable, pain, was measured at baseline, immediately post-treatment, and six months post-treatment. 
+We fit a linear mixed model to the data in R (version 3.3.2) using the lme function in the nlme package (version 3.1-128). The model was fit with mean group pain as the outcome variable, and measurement time and an interaction between measurement time and treatment type as the covariates. Both measurement time and treatment type were treated as categorical variables; measurement time was not treated as linear or ordinal because there are only three measurement times, with large, uneven timespans between them. The model did not include the treatment type variable alone outside of the interaction variable, as we assume that baseline pain measurements are equal between the treatment arms. For random effects, the model was fit with a random slope but without a random intercept, and was clustered on measurement time points. The model fit was visually assessed using residual versus fitted and residual versus actual plots. 
 
-Because this study was a randomized trial, we look at the different groups to see if the randomization was successful in creating evenly distributed groups. After showing that the groups are sufficiently similar, we can then compare the groups outcomes directly, without controlling for other factors, as we can then assume that they are equal.
-
-### Description of Issues with data
-1. There were 216 female subjects and only 14 male subjects, representing 94$\%$ and 6$\%$, respectively. Due to this gender imbalance in the study design, we cannot make any conclusive statements about men. 
-2. Race imbalance; race 4 is overrepresented at WSU locations.
+## Results
+### Table
 ```{r}
-table(pain[,.(therapysite, race)])
-chisq.test(table(pain[,.(therapysite, race)]))
-```
-3. Unreliability of self-reported pain measures; 10 is described as "pain as bad as you can imagine," and yet pops up relatively often. 
-4. Some missing data from patient drop-out.
-
-
-### Check normality of outcome for t-tests (not that important)
-```{r}
-hist(pain[condition == "EDU", (BPI_PainSeverity_V2)])
-hist(pain[condition == "CBT", (BPI_PainSeverity_V2)])
-hist(pain[condition == "EET", (BPI_PainSeverity_V2)])
+# percentages are calculated after excluding missing values
+vars <- c("therapysite", "numsessions", "AGE", "year_post_diag", "sex", "bmi", "ethnic", "race", "healthinsurance", "tptotal", "acr_fmness", "CMSI_Total", "BPI_PainSeverity_V2", "BPI_PainSeverity_V3", "BPI_PainSeverity_V4")
+cat_vars <- c("initialsite", "grpnbr", "therapysite", "sex", "ethnic", "race", "highesteduc", "relationstatus","currentemployment", "healthinsurance")
+tab1 <- CreateTableOne(data = pain, vars = vars, factorVars = cat_vars, strata = "condition")
+print(tab1, showAllLevels = T)
 ```
 
+The modeling strategy employed in this study is dependent on the assumption that all other variables besides treatment type and time were equal between treatment groups. This assumption of equality is based on the randomization scheme used by the study, and is evaluated in Table 1. Table 1 shows several baseline patient measurements, stratified by treatment type. Variables were compared between the treatment groups using chi-squared tests if they were categorical and one-way anova if they were continuous. The normality assumption for the anova tests was evaluated using the density plots in Table 2. Looking at the results from the chi-squared tests and one-way anova tests, with a p-value cutoff of 0.05, there do not seem to be any baseline measurements that differ between the three treatment groups. The only borderline variable is CMSI_Total, with a p-value of 0.050; however, it should be noted that we are doing multiple testing, and that a more conservative cutoff could have been chosen if the priority was to minimize false positives. Note also that while the two therapy sites were expected to have different patient demographics, both treatment sites shared interventionists and supervision coordinators, minimizing site effects beyond the demographic information. 
 
-## Modeling
-
-### Comparing treatment groups to control groups
-```{r}
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "CBT", .(BPI_PainSeverity_V2)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "EET", .(BPI_PainSeverity_V2)])
-
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V3)], pain[condition == "CBT", .(BPI_PainSeverity_V3)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V3)], pain[condition == "EET", .(BPI_PainSeverity_V3)])
-
-
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V4)], pain[condition == "CBT", .(BPI_PainSeverity_V4)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V4)], pain[condition == "EET", .(BPI_PainSeverity_V4)])
-
-```
-T-tests comparing the difference in mean pain at baseline found no difference between EDU and EET, and no difference between EDU and CBT. 
-
-T-tests comparing the difference in mean pain immediately post-treatment found a significant difference between EDU and EET, and a significant difference between EDU and CBT. 
-
-T-tests comparing the difference in mean pain six months post-treatment found no difference between EDU and EET, and no difference between EDU and CBT. 
-
-### Effect of treatment over time
-```{r}
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "EDU", .(BPI_PainSeverity_V3)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V3)], pain[condition == "EDU", .(BPI_PainSeverity_V4)])
-t.test(pain[condition == "EDU", .(BPI_PainSeverity_V2)], pain[condition == "EDU", .(BPI_PainSeverity_V4)])
+```{r figure 1, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(long_pain, aes(x = pain)) + geom_density() + facet_wrap(condition ~
+    time) 
+#ggplot(group_pain, aes(x = mean_pain)) + geom_density() + facet_wrap(condition ~ time) 
 ```
 
+### Group pain
+```{r, message=FALSE, warning=FALSE, results="asis", echo = F}
+#group <- lmer(mean_pain ~ time + time:condition + (0 + grpnbr | time), data = group_pain)
+#summary(group)
+#confint(group, method="boot", nsim=1000)
+group <- lme(mean_pain ~ time + time:condition, random = ~ 0 + time | grpnbr, data = group_pain)
+#summary(group) # this is the one I'm going with I think; I took mean pain for each group, then two levels.
+stargazer(group, type = "text", report = "vcsp", header = F, digits = 2)
+```
+The results from the linear mixed model can be seen in Table 3. The model uses the baseline time point (V2) and the control therapy (EDU) as the reference levels. The coefficients in the model can be interpreted as follows: the timeV coefficients are the difference in mean pain for EDU groups between the respective time V and time V2; the interaction terms timeV:conditionCBT are the difference in mean pain between CBT and EDU groups at the respective timeV; and the interaction terms timeV:conditionEET are the difference in mean pain between EET and EDU groups at the respective timeV. Using a cutoff value of p = 0.05, the model results show that there is a significant decrease in mean pain from time point V2 to time point V4 for the EDU groups. It also shows that at time point V3, EET groups have significantly lower mean pain scores than EDU groups at time point V3. CBT groups at time V3 also have lower mean pain scores than EDU groups, but to a lesser extent than EET groups. By time point V4, there is no discernable difference in mean pain scores between all three groups. Overall, EET and CBT groups decrease in mean pain score between time points V2 and V3, but then do not continue decreasing between time points V3 and V4. Meanwhile, the EDU groups do not decrease in mean pain scores between V2 and V3, but then decrease in mean pain scores between time points V3 and V4, catching up to the mean pain scores for the other groups.
+
+
+```{r diagnostics, message=FALSE, warning=FALSE, echo = F}
+par(mfrow=c(1,1))
+
+p1 <- ggplot() + geom_point(aes(fitted(group), residuals(group, type="normalized"))) + 
+  xlab("Fitted Pain Values") +
+  ylab("Normalized Residuals") + 
+  geom_hline(yintercept = 0) +
+  stat_smooth()
+  geom_smooth(method = "lm", se = FALSE)
+p2 <- qplot(fitted(group), group_pain$mean_pain, xlab = "Fitted Pain Values", ylab = "Actual Pain Values") + geom_abline(slope = 1)
+grid.arrange(p1, p2, nrow=1)
+```
+The residual plots can be seen in Figure 2. Looking at the normalized residual plot, it can be seen that there is a slight positive trend between the fitted pain values and the residuals. On the fitted pain values versus actual pain value plot, the same trend can be seen, but does not appear as impactful. 
+
+
+## Discussion and Conclusion
+There did not appear to be any significant differences in baseline demographics between treatment therapies, indicating that the randomization process was successful. Overall, there is a trend of mean pain scores decreasing over time for all three treatments groups, with mean pain score starting around 5.4 at V2 and ending around 4.7 at V4. This overall 13 percent drop does not meet the recommended 30 percent drop, but varies from patient to patient; 52 out of the 230 patients (22 percent) of the patients had a 30 percent or greater decrease in pain. 
+
+Both EET and CBT treatments decrease pain scores by the end of the treatment, with EET being slightly more effective than CBT. Patients do not continue to decrease in pain score following the treatment period, but also do not increase in pain score, implying that these treatments have lasting effects. Meanwhile, patients who underwent the EDU treatment do not display any improvement in pain scores by the end of study, but do display improvement when measured at the V3 time point six months after the end of the study, which might indicate that patients in the education treatment arm decided to seek help on their own at the end of the treatment period. 
+
+
+## Appendix
 
 
